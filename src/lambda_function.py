@@ -1,27 +1,43 @@
 import os
-import random
+import logging
 import json
 from pathlib import Path
 import tweepy
-import csv
+import time
+from datetime import datetime
+from dotenv import CONSUMER_KEY, CONSUMER_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET
 
 ROOT = Path(__file__).resolve().parents[0]
 
+# Creates OAuthHandler instance
+auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
+auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
 
-def get_tweet(tweets_file, excluded_tweets=None):
-    """Get tweet to post from CSV file"""
+# Creates API object
+api = tweepy.API(auth)
 
-    with open(tweets_file) as csvfile:
-        reader = csv.DictReader(csvfile)
-        possible_tweets = [row["tweet"] for row in reader]
+def send_tweet(message):
+    api.update_status(message)
+    logging.info('Tweet sent: {}'.format(message))
 
-    if excluded_tweets:
-        recent_tweets = [status_object.text for status_object in excluded_tweets]
-        possible_tweets = [tweet for tweet in possible_tweets if tweet not in recent_tweets]
+def schedule_tweets():
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', filename='twitter_bot.log')
 
-    selected_tweet = random.choice(possible_tweets)
+    while True:
+        current_time = datetime.now().strftime("%H:%M")
+        logging.info('Checking current time: {}'.format(current_time))
 
-    return selected_tweet
+        if current_time == "07:00":
+            send_tweet("Good morning, Beautiful people!")
+        elif current_time == "12:00":
+            send_tweet("Good afternoon, Beautiful people!")
+        elif current_time == "18:00":
+            send_tweet("Good evening, Beautiful people!")
+        elif current_time == "22:00":
+            send_tweet("Goodnight, Beautiful people!")
+
+        # Wait for 1 minute before checking time again
+        time.sleep(60)
 
 
 def lambda_handler(event, context):
@@ -36,12 +52,12 @@ def lambda_handler(event, context):
     auth.set_access_token(access_token, access_token_secret)
     api = tweepy.API(auth)
 
-    print("Get tweet from csv file")
-    tweets_file = ROOT / "tweets.csv"
-    recent_tweets = api.user_timeline()[:3]
-    tweet = get_tweet(tweets_file)
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', filename='twitter_bot.log')
+    logging.info('Lambda handler invoked')
 
-    print(f"Post tweet: {tweet}")
-    api.update_status(tweet)
+    schedule_tweets()
 
-    return {"statusCode": 200, "tweet": tweet}
+    return {
+        'statusCode': 200,
+        'body': 'Lambda handler executed successfully'
+    }
